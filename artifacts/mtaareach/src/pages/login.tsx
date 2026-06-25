@@ -1,40 +1,40 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/lib/auth";
+import { useLogin } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageSquare, Shield } from "lucide-react";
+import { MessageSquare, Shield, Loader2, AlertCircle } from "lucide-react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { setSession } = useAuthStore();
-  const [email, setEmail] = useState("admin@mtaareach.com");
-  const [password, setPassword] = useState("password");
-  const [role, setRole] = useState<"tenant_admin" | "super_admin">("tenant_admin");
+  const [email, setEmail] = useState("admin@demo-outreach.com");
+  const [password, setPassword] = useState("admin123");
+  const [error, setError] = useState<string | null>(null);
+
+  const loginMutation = useLogin({
+    mutation: {
+      onSuccess: (data) => {
+        setSession(data);
+        if (data.user.role === "super_admin") {
+          setLocation("/super/dashboard");
+        } else {
+          setLocation("/dashboard");
+        }
+      },
+      onError: () => {
+        setError("Invalid email or password. Please try again.");
+      }
+    }
+  });
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login
-    setSession({
-      user: {
-        id: role === "super_admin" ? 999 : 1,
-        email,
-        firstName: role === "super_admin" ? "System" : "Tenant",
-        lastName: "Admin",
-        role: role,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      token: "mock-jwt-token"
-    });
-    
-    if (role === "super_admin") {
-      setLocation("/super/dashboard");
-    } else {
-      setLocation("/dashboard");
-    }
+    setError(null);
+    loginMutation.mutate({ email, password });
   };
 
   return (
@@ -55,50 +55,47 @@ export default function Login() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
+                <Input
+                  id="email"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required 
+                  placeholder="you@example.com"
+                  required
+                  disabled={loginMutation.isPending}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
+                <Input
+                  id="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required 
+                  required
+                  disabled={loginMutation.isPending}
                 />
               </div>
-              
-              <div className="pt-2 flex items-center gap-2">
-                <div className="flex-1 bg-muted p-1 rounded-md flex">
-                  <button
-                    type="button"
-                    onClick={() => setRole("tenant_admin")}
-                    className={`flex-1 py-1.5 text-sm font-medium rounded-sm transition-colors ${role === "tenant_admin" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Tenant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("super_admin")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-sm font-medium rounded-sm transition-colors ${role === "super_admin" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    <Shield className="h-3.5 w-3.5" />
-                    Super
-                  </button>
-                </div>
-              </div>
 
-              <Button type="submit" className="w-full mt-4">
-                Sign In
+              <Button type="submit" className="w-full mt-4" disabled={loginMutation.isPending}>
+                {loginMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in…</>
+                ) : "Sign In"}
               </Button>
+
+              <div className="pt-2 border-t text-xs text-muted-foreground space-y-1">
+                <div className="flex items-center gap-1"><Shield className="h-3 w-3" /><span className="font-medium">Demo credentials:</span></div>
+                <div>Tenant Admin: <button type="button" className="text-primary underline" onClick={() => { setEmail("admin@demo-outreach.com"); setPassword("admin123"); }}>admin@demo-outreach.com</button></div>
+                <div>Super Admin: <button type="button" className="text-primary underline" onClick={() => { setEmail("superadmin@mtaareach.com"); setPassword("admin123"); }}>superadmin@mtaareach.com</button></div>
+              </div>
             </form>
           </CardContent>
         </Card>
