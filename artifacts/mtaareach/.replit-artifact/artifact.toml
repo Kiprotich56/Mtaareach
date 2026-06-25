@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "MtaaReach CRM"
+version = "1.0.0"
+id = "artifacts/mtaareach"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19260
+
+[services.development]
+run = "pnpm --filter @workspace/mtaareach run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mtaareach", "run", "build" ]
+publicDir = "artifacts/mtaareach/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19260"
+BASE_PATH = "/"

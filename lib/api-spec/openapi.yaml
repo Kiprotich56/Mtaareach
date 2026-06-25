@@ -3,20 +3,48 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: MtaaReach CRM API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: tenants
+    description: Tenant management (Super Admin)
+  - name: users
+    description: User management
+  - name: geography
+    description: Geographic hierarchy
+  - name: contacts
+    description: Contact management
+  - name: groups
+    description: Contact groups
+  - name: campaigns
+    description: SMS campaigns
+  - name: templates
+    description: SMS templates
+  - name: wallet
+    description: Wallet & credits
+  - name: senderIds
+    description: Sender ID management
+  - name: smsGateways
+    description: SMS gateway config
+  - name: auditLogs
+    description: Audit logs
+  - name: dashboard
+    description: Dashboard stats
+  - name: reports
+    description: Reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +52,1538 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── AUTH ──────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user session
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── TENANTS ───────────────────────────────────────────────────────────────
+  /tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: List all tenants (Super Admin)
+      responses:
+        "200":
+          description: Tenants list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tenant"
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Create tenant (Super Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{tenantId}:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{tenantId}/activate:
+    post:
+      operationId: activateTenant
+      tags: [tenants]
+      summary: Activate tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{tenantId}/deactivate:
+    post:
+      operationId: deactivateTenant
+      tags: [tenants]
+      summary: Deactivate tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  # ── USERS ─────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users (scoped by tenant/role)
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete/deactivate user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── GEOGRAPHY ─────────────────────────────────────────────────────────────
+  /geography/counties:
+    get:
+      operationId: listCounties
+      tags: [geography]
+      summary: List all counties
+      responses:
+        "200":
+          description: Counties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/County"
+
+  /geography/constituencies:
+    get:
+      operationId: listConstituencies
+      tags: [geography]
+      summary: List constituencies (optionally filtered by county)
+      parameters:
+        - name: countyId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Constituencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Constituency"
+
+  /geography/wards:
+    get:
+      operationId: listWards
+      tags: [geography]
+      summary: List wards (optionally filtered by constituency)
+      parameters:
+        - name: constituencyId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Wards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ward"
+
+  /geography/villages:
+    get:
+      operationId: listVillages
+      tags: [geography]
+      summary: List villages (tenant-scoped)
+      parameters:
+        - name: wardId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, pending, rejected]
+      responses:
+        "200":
+          description: Villages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Village"
+    post:
+      operationId: createVillage
+      tags: [geography]
+      summary: Submit a new village for approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VillageInput"
+      responses:
+        "201":
+          description: Submitted for approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Village"
+
+  /geography/villages/{villageId}:
+    get:
+      operationId: getVillage
+      tags: [geography]
+      summary: Get village
+      parameters:
+        - name: villageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Village
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Village"
+    patch:
+      operationId: updateVillage
+      tags: [geography]
+      summary: Update village
+      parameters:
+        - name: villageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VillageUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Village"
+
+  /geography/villages/{villageId}/approve:
+    post:
+      operationId: approveVillage
+      tags: [geography]
+      summary: Approve a pending village
+      parameters:
+        - name: villageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Village"
+
+  /geography/villages/{villageId}/reject:
+    post:
+      operationId: rejectVillage
+      tags: [geography]
+      summary: Reject a pending village
+      parameters:
+        - name: villageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VillageRejection"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Village"
+
+  /geography/polling-stations:
+    get:
+      operationId: listPollingStations
+      tags: [geography]
+      summary: List polling stations
+      parameters:
+        - name: wardId
+          in: query
+          schema:
+            type: integer
+        - name: villageId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Polling stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollingStation"
+    post:
+      operationId: createPollingStation
+      tags: [geography]
+      summary: Create polling station
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PollingStationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollingStation"
+
+  /geography/polling-stations/{stationId}:
+    patch:
+      operationId: updatePollingStation
+      tags: [geography]
+      summary: Update polling station
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PollingStationUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollingStation"
+
+  # ── CONTACTS ──────────────────────────────────────────────────────────────
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List contacts (with search/filter)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: wardId
+          in: query
+          schema:
+            type: integer
+        - name: villageId
+          in: query
+          schema:
+            type: integer
+        - name: constituencyId
+          in: query
+          schema:
+            type: integer
+        - name: countyId
+          in: query
+          schema:
+            type: integer
+        - name: groupId
+          in: query
+          schema:
+            type: integer
+        - name: gender
+          in: query
+          schema:
+            type: string
+        - name: consentSms
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contacts list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactsPage"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Register a new contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "409":
+          description: Duplicate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DuplicateContactResponse"
+
+  /contacts/{contactId}:
+    get:
+      operationId: getContact
+      tags: [contacts]
+      summary: Get contact
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      summary: Update contact
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      summary: Delete contact
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /contacts/{contactId}/opt-out:
+    post:
+      operationId: optOutContact
+      tags: [contacts]
+      summary: Opt out contact from SMS
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Opted out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/import:
+    post:
+      operationId: importContacts
+      tags: [contacts]
+      summary: Bulk import contacts (CSV)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /contacts/stats:
+    get:
+      operationId: getContactStats
+      tags: [contacts]
+      summary: Contact statistics (by gender, geography, consent)
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactStats"
+
+  # ── GROUPS ────────────────────────────────────────────────────────────────
+  /groups:
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: List contact groups
+      responses:
+        "200":
+          description: Groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Group"
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+
+  /groups/{groupId}:
+    get:
+      operationId: getGroup
+      tags: [groups]
+      summary: Get group with members
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+    patch:
+      operationId: updateGroup
+      tags: [groups]
+      summary: Update group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+    delete:
+      operationId: deleteGroup
+      tags: [groups]
+      summary: Delete group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /groups/{groupId}/members:
+    post:
+      operationId: addGroupMembers
+      tags: [groups]
+      summary: Add contacts to group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupMembersInput"
+      responses:
+        "200":
+          description: Members added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+    delete:
+      operationId: removeGroupMembers
+      tags: [groups]
+      summary: Remove contacts from group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupMembersInput"
+      responses:
+        "200":
+          description: Members removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── SMS TEMPLATES ─────────────────────────────────────────────────────────
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List SMS templates
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+    post:
+      operationId: createTemplate
+      tags: [templates]
+      summary: Create SMS template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+
+  /templates/{templateId}:
+    get:
+      operationId: getTemplate
+      tags: [templates]
+      summary: Get template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+    patch:
+      operationId: updateTemplate
+      tags: [templates]
+      summary: Update template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+    delete:
+      operationId: deleteTemplate
+      tags: [templates]
+      summary: Archive template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /templates/{templateId}/duplicate:
+    post:
+      operationId: duplicateTemplate
+      tags: [templates]
+      summary: Duplicate a template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Duplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+
+  # ── CAMPAIGNS ─────────────────────────────────────────────────────────────
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List campaigns
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, queued, sending, completed, paused, failed]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignsPage"
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create and optionally queue a campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{campaignId}:
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: Get campaign detail and stats
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+    patch:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Update campaign (draft only)
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{campaignId}/pause:
+    post:
+      operationId: pauseCampaign
+      tags: [campaigns]
+      summary: Pause a sending campaign
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{campaignId}/resume:
+    post:
+      operationId: resumeCampaign
+      tags: [campaigns]
+      summary: Resume a paused campaign
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{campaignId}/preview:
+    post:
+      operationId: previewCampaign
+      tags: [campaigns]
+      summary: Preview audience size and estimated cost before confirming
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignPreview"
+
+  /sms-logs:
+    get:
+      operationId: listSmsLogs
+      tags: [campaigns]
+      summary: List SMS delivery logs (filter by campaign, status, etc.)
+      parameters:
+        - name: campaignId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [sent, delivered, failed, pending]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsLogsPage"
+
+  /campaigns/summary:
+    get:
+      operationId: getCampaignSummary
+      tags: [campaigns]
+      summary: Aggregate campaign stats (totals, delivery rates)
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignSummary"
+
+  # ── SENDER IDs ────────────────────────────────────────────────────────────
+  /sender-ids:
+    get:
+      operationId: listSenderIds
+      tags: [senderIds]
+      summary: List sender IDs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Sender IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SenderId"
+    post:
+      operationId: requestSenderId
+      tags: [senderIds]
+      summary: Request a new Sender ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SenderIdInput"
+      responses:
+        "201":
+          description: Request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderId"
+
+  /sender-ids/{senderIdId}/approve:
+    post:
+      operationId: approveSenderId
+      tags: [senderIds]
+      summary: Approve sender ID (Super Admin)
+      parameters:
+        - name: senderIdId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderId"
+
+  /sender-ids/{senderIdId}/reject:
+    post:
+      operationId: rejectSenderId
+      tags: [senderIds]
+      summary: Reject sender ID (Super Admin)
+      parameters:
+        - name: senderIdId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SenderIdRejection"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderId"
+
+  # ── WALLET ────────────────────────────────────────────────────────────────
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get wallet balance and info
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/transactions:
+    get:
+      operationId: listWalletTransactions
+      tags: [wallet]
+      summary: List wallet transactions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletTransactionsPage"
+
+  /wallet/top-up:
+    post:
+      operationId: topUpWallet
+      tags: [wallet]
+      summary: Add credits to wallet (Super Admin / System)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletTopUpInput"
+      responses:
+        "200":
+          description: Credits added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/all:
+    get:
+      operationId: listAllWallets
+      tags: [wallet]
+      summary: List all tenant wallets (Super Admin)
+      responses:
+        "200":
+          description: All wallets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
+
+  # ── SMS GATEWAYS ──────────────────────────────────────────────────────────
+  /sms-gateways:
+    get:
+      operationId: listSmsGateways
+      tags: [smsGateways]
+      summary: List SMS gateways (Super Admin)
+      responses:
+        "200":
+          description: Gateways
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SmsGateway"
+    post:
+      operationId: createSmsGateway
+      tags: [smsGateways]
+      summary: Create SMS gateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmsGatewayInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsGateway"
+
+  /sms-gateways/{gatewayId}:
+    patch:
+      operationId: updateSmsGateway
+      tags: [smsGateways]
+      summary: Update SMS gateway
+      parameters:
+        - name: gatewayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmsGatewayUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsGateway"
+
+  # ── DASHBOARD ─────────────────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard KPI stats (tenant-scoped or super admin)
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/super-admin:
+    get:
+      operationId: getSuperAdminDashboard
+      tags: [dashboard]
+      summary: Super Admin dashboard — system health, tenant stats, SMS totals
+      responses:
+        "200":
+          description: Super Admin dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuperAdminDashboard"
+
+  /dashboard/geographic-summary:
+    get:
+      operationId: getGeographicSummary
+      tags: [dashboard]
+      summary: Contact distribution by geography
+      responses:
+        "200":
+          description: Geographic summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeographicSummary"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent activity feed (contacts added, campaigns sent)
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # ── AUDIT LOGS ────────────────────────────────────────────────────────────
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [auditLogs]
+      summary: List audit logs
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogsPage"
+
+  # ── REPORTS ───────────────────────────────────────────────────────────────
+  /reports/contacts:
+    get:
+      operationId: getContactReport
+      tags: [reports]
+      summary: Contact report with filters
+      parameters:
+        - name: countyId
+          in: query
+          schema:
+            type: integer
+        - name: constituencyId
+          in: query
+          schema:
+            type: integer
+        - name: wardId
+          in: query
+          schema:
+            type: integer
+        - name: gender
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contact report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactReport"
+
+  /reports/campaigns:
+    get:
+      operationId: getCampaignReport
+      tags: [reports]
+      summary: Campaign performance report
+      responses:
+        "200":
+          description: Campaign report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignReport"
+
+  # ── TENANT SETTINGS & BRANDING ───────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getTenantSettings
+      tags: [tenants]
+      summary: Get current tenant settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettings"
+    patch:
+      operationId: updateTenantSettings
+      tags: [tenants]
+      summary: Update tenant settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettings"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +1591,1181 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # AUTH
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+
+    AuthSession:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+
+    # TENANT
+    Tenant:
+      type: object
+      required: [id, name, slug, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        logoUrl:
+          type: ["string", "null"]
+        primaryColor:
+          type: ["string", "null"]
+        defaultSenderId:
+          type: ["string", "null"]
+        timezone:
+          type: string
+        smsRatePerMessage:
+          type: number
+        walletBalance:
+          type: number
+        createdAt:
+          type: string
+
+    TenantInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        timezone:
+          type: string
+        smsRatePerMessage:
+          type: number
+
+    TenantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        timezone:
+          type: string
+        smsRatePerMessage:
+          type: number
+        defaultSenderId:
+          type: ["string", "null"]
+        primaryColor:
+          type: ["string", "null"]
+
+    TenantSettings:
+      type: object
+      required: [id, tenantId, defaultSenderId, timezone, smsRatePerMessage]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        defaultSenderId:
+          type: ["string", "null"]
+        timezone:
+          type: string
+        smsRatePerMessage:
+          type: number
+        allowFieldAgentVillageSubmission:
+          type: boolean
+        requireConsentForSms:
+          type: boolean
+
+    TenantSettingsUpdate:
+      type: object
+      properties:
+        defaultSenderId:
+          type: ["string", "null"]
+        timezone:
+          type: string
+        allowFieldAgentVillageSubmission:
+          type: boolean
+        requireConsentForSms:
+          type: boolean
+
+    # USER
+    User:
+      type: object
+      required: [id, email, firstName, lastName, role, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, tenant_admin, county_coordinator, constituency_coordinator, ward_coordinator, village_coordinator, field_agent]
+        isActive:
+          type: boolean
+        tenantId:
+          type: ["integer", "null"]
+        assignedCountyId:
+          type: ["integer", "null"]
+        assignedConstituencyId:
+          type: ["integer", "null"]
+        assignedWardId:
+          type: ["integer", "null"]
+        assignedVillageId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [email, firstName, lastName, role, password]
+      properties:
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [tenant_admin, county_coordinator, constituency_coordinator, ward_coordinator, village_coordinator, field_agent]
+        password:
+          type: string
+        assignedCountyId:
+          type: ["integer", "null"]
+        assignedConstituencyId:
+          type: ["integer", "null"]
+        assignedWardId:
+          type: ["integer", "null"]
+        assignedVillageId:
+          type: ["integer", "null"]
+
+    UserUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+        isActive:
+          type: boolean
+        assignedCountyId:
+          type: ["integer", "null"]
+        assignedConstituencyId:
+          type: ["integer", "null"]
+        assignedWardId:
+          type: ["integer", "null"]
+        assignedVillageId:
+          type: ["integer", "null"]
+
+    # GEOGRAPHY
+    County:
+      type: object
+      required: [id, name, code]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        constituencyCount:
+          type: integer
+
+    Constituency:
+      type: object
+      required: [id, name, countyId]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        countyId:
+          type: integer
+        countyName:
+          type: string
+        wardCount:
+          type: integer
+
+    Ward:
+      type: object
+      required: [id, name, constituencyId]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        constituencyId:
+          type: integer
+        constituencyName:
+          type: string
+        countyName:
+          type: string
+
+    Village:
+      type: object
+      required: [id, name, wardId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        wardId:
+          type: integer
+        wardName:
+          type: string
+        status:
+          type: string
+          enum: [active, pending, rejected]
+        gpsCoordinates:
+          type: ["string", "null"]
+        population:
+          type: ["integer", "null"]
+        rejectionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    VillageInput:
+      type: object
+      required: [name, wardId]
+      properties:
+        name:
+          type: string
+        wardId:
+          type: integer
+        gpsCoordinates:
+          type: string
+        population:
+          type: integer
+
+    VillageUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        gpsCoordinates:
+          type: ["string", "null"]
+        population:
+          type: ["integer", "null"]
+
+    VillageRejection:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    PollingStation:
+      type: object
+      required: [id, name, wardId, code, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        wardId:
+          type: integer
+        wardName:
+          type: string
+        villageId:
+          type: ["integer", "null"]
+        registeredVoters:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    PollingStationInput:
+      type: object
+      required: [name, code, wardId]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        wardId:
+          type: integer
+        villageId:
+          type: ["integer", "null"]
+        registeredVoters:
+          type: ["integer", "null"]
+
+    PollingStationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        villageId:
+          type: ["integer", "null"]
+        registeredVoters:
+          type: ["integer", "null"]
+
+    # CONTACTS
+    Contact:
+      type: object
+      required: [id, firstName, lastName, phone, tenantId, createdAt]
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        gender:
+          type: ["string", "null"]
+          enum: [male, female, other, null]
+        ageGroup:
+          type: ["string", "null"]
+        occupation:
+          type: ["string", "null"]
+        countyId:
+          type: ["integer", "null"]
+        constituencyId:
+          type: ["integer", "null"]
+        wardId:
+          type: ["integer", "null"]
+        villageId:
+          type: ["integer", "null"]
+        pollingStationId:
+          type: ["integer", "null"]
+        wardName:
+          type: ["string", "null"]
+        villageName:
+          type: ["string", "null"]
+        consentSms:
+          type: boolean
+        consentSource:
+          type: ["string", "null"]
+        consentDate:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        notes:
+          type: ["string", "null"]
+        tenantId:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    ContactInput:
+      type: object
+      required: [firstName, lastName, phone]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+        ageGroup:
+          type: string
+        occupation:
+          type: string
+        countyId:
+          type: ["integer", "null"]
+        constituencyId:
+          type: ["integer", "null"]
+        wardId:
+          type: ["integer", "null"]
+        villageId:
+          type: ["integer", "null"]
+        pollingStationId:
+          type: ["integer", "null"]
+        consentSms:
+          type: boolean
+        consentSource:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+
+    ContactUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        gender:
+          type: ["string", "null"]
+        ageGroup:
+          type: ["string", "null"]
+        occupation:
+          type: ["string", "null"]
+        wardId:
+          type: ["integer", "null"]
+        villageId:
+          type: ["integer", "null"]
+        pollingStationId:
+          type: ["integer", "null"]
+        consentSms:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        notes:
+          type: ["string", "null"]
+
+    ContactsPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    DuplicateContactResponse:
+      type: object
+      required: [error, existing]
+      properties:
+        error:
+          type: string
+        existing:
+          $ref: "#/components/schemas/Contact"
+
+    ContactImportInput:
+      type: object
+      required: [contacts]
+      properties:
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactInput"
+
+    ImportResult:
+      type: object
+      required: [imported, skipped, errors]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    ContactStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        withConsent:
+          type: integer
+        byGender:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        byConstituency:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        recentlyAdded:
+          type: integer
+
+    StatBucket:
+      type: object
+      required: [label, count]
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+
+    # GROUPS
+    Group:
+      type: object
+      required: [id, name, tenantId, memberCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        tenantId:
+          type: integer
+        memberCount:
+          type: integer
+        createdAt:
+          type: string
+
+    GroupInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    GroupUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    GroupMembersInput:
+      type: object
+      required: [contactIds]
+      properties:
+        contactIds:
+          type: array
+          items:
+            type: integer
+
+    # TEMPLATES
+    Template:
+      type: object
+      required: [id, name, body, tenantId, isArchived, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        body:
+          type: string
+        charCount:
+          type: integer
+        partCount:
+          type: integer
+        tenantId:
+          type: integer
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+
+    TemplateInput:
+      type: object
+      required: [name, body]
+      properties:
+        name:
+          type: string
+        body:
+          type: string
+
+    TemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        body:
+          type: string
+
+    # CAMPAIGNS
+    Campaign:
+      type: object
+      required: [id, name, senderId, body, status, tenantId, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        senderId:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [draft, queued, sending, completed, paused, failed]
+        tenantId:
+          type: integer
+        templateId:
+          type: ["integer", "null"]
+        scheduledAt:
+          type: ["string", "null"]
+        sentAt:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        totalRecipients:
+          type: integer
+        sentCount:
+          type: integer
+        deliveredCount:
+          type: integer
+        failedCount:
+          type: integer
+        estimatedCost:
+          type: number
+        actualCost:
+          type: number
+        audienceFilter:
+          $ref: "#/components/schemas/AudienceFilter"
+        createdAt:
+          type: string
+
+    CampaignInput:
+      type: object
+      required: [name, senderId, body, audience]
+      properties:
+        name:
+          type: string
+        senderId:
+          type: string
+        body:
+          type: string
+        templateId:
+          type: ["integer", "null"]
+        audience:
+          $ref: "#/components/schemas/AudienceFilter"
+        scheduledAt:
+          type: ["string", "null"]
+        sendNow:
+          type: boolean
+
+    CampaignUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        senderId:
+          type: string
+        body:
+          type: string
+        audience:
+          $ref: "#/components/schemas/AudienceFilter"
+        scheduledAt:
+          type: ["string", "null"]
+
+    AudienceFilter:
+      type: object
+      properties:
+        countyIds:
+          type: array
+          items:
+            type: integer
+        constituencyIds:
+          type: array
+          items:
+            type: integer
+        wardIds:
+          type: array
+          items:
+            type: integer
+        villageIds:
+          type: array
+          items:
+            type: integer
+        pollingStationIds:
+          type: array
+          items:
+            type: integer
+        groupIds:
+          type: array
+          items:
+            type: integer
+        contactIds:
+          type: array
+          items:
+            type: integer
+
+    CampaignPreview:
+      type: object
+      required: [totalSelected, eligible, excluded, estimatedCost, walletBalance, canAfford]
+      properties:
+        totalSelected:
+          type: integer
+        eligible:
+          type: integer
+        excluded:
+          type: integer
+        estimatedCost:
+          type: number
+        walletBalance:
+          type: number
+        canAfford:
+          type: boolean
+
+    CampaignsPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campaign"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CampaignSummary:
+      type: object
+      properties:
+        totalCampaigns:
+          type: integer
+        totalSmsSent:
+          type: integer
+        totalSmsDelivered:
+          type: integer
+        deliveryRate:
+          type: number
+        totalCost:
+          type: number
+        byCampaignStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+
+    SmsLog:
+      type: object
+      required: [id, campaignId, contactId, phone, status, createdAt]
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        contactId:
+          type: integer
+        phone:
+          type: string
+        status:
+          type: string
+          enum: [sent, delivered, failed, pending]
+        errorMessage:
+          type: ["string", "null"]
+        sentAt:
+          type: ["string", "null"]
+        deliveredAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SmsLogsPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmsLog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # SENDER IDs
+    SenderId:
+      type: object
+      required: [id, name, status, tenantId, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        rejectionReason:
+          type: ["string", "null"]
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+
+    SenderIdInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    SenderIdRejection:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    # WALLET
+    Wallet:
+      type: object
+      required: [id, tenantId, balance, currency, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        balance:
+          type: number
+        currency:
+          type: string
+        updatedAt:
+          type: string
+
+    WalletTransaction:
+      type: object
+      required: [id, tenantId, type, amount, balanceBefore, balanceAfter, description, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        type:
+          type: string
+          enum: [credit, debit]
+        amount:
+          type: number
+        balanceBefore:
+          type: number
+        balanceAfter:
+          type: number
+        description:
+          type: string
+        campaignId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    WalletTransactionsPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletTransaction"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    WalletTopUpInput:
+      type: object
+      required: [amount, description]
+      properties:
+        tenantId:
+          type: ["integer", "null"]
+        amount:
+          type: number
+        description:
+          type: string
+
+    # SMS GATEWAYS
+    SmsGateway:
+      type: object
+      required: [id, name, provider, isActive, isPrimary, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        provider:
+          type: string
+        apiEndpoint:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isPrimary:
+          type: boolean
+        deliveryRate:
+          type: number
+        totalSent:
+          type: integer
+        createdAt:
+          type: string
+
+    SmsGatewayInput:
+      type: object
+      required: [name, provider]
+      properties:
+        name:
+          type: string
+        provider:
+          type: string
+        apiEndpoint:
+          type: string
+        apiKey:
+          type: string
+        isPrimary:
+          type: boolean
+
+    SmsGatewayUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        apiEndpoint:
+          type: ["string", "null"]
+        apiKey:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isPrimary:
+          type: boolean
+
+    # DASHBOARD
+    DashboardStats:
+      type: object
+      properties:
+        totalContacts:
+          type: integer
+        contactsWithConsent:
+          type: integer
+        activeCampaigns:
+          type: integer
+        totalSmsSent:
+          type: integer
+        walletBalance:
+          type: number
+        newContactsThisWeek:
+          type: integer
+        campaignsThisMonth:
+          type: integer
+        deliveryRate:
+          type: number
+
+    SuperAdminDashboard:
+      type: object
+      properties:
+        totalTenants:
+          type: integer
+        activeTenants:
+          type: integer
+        totalContacts:
+          type: integer
+        totalSmsSentToday:
+          type: integer
+        totalSmsThisMonth:
+          type: integer
+        topTenants:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantStat"
+        gatewayStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/GatewayStat"
+
+    TenantStat:
+      type: object
+      required: [tenantId, tenantName, contactCount, smsSent]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        contactCount:
+          type: integer
+        smsSent:
+          type: integer
+        walletBalance:
+          type: number
+
+    GatewayStat:
+      type: object
+      required: [gatewayId, gatewayName, status, sentToday]
+      properties:
+        gatewayId:
+          type: integer
+        gatewayName:
+          type: string
+        status:
+          type: string
+        sentToday:
+          type: integer
+        deliveryRate:
+          type: number
+
+    GeographicSummary:
+      type: object
+      properties:
+        byCounty:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        byConstituency:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        byWard:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [contact_added, campaign_sent, campaign_completed, village_approved, user_created]
+        description:
+          type: string
+        actorName:
+          type: string
+        createdAt:
+          type: string
+
+    # AUDIT LOGS
+    AuditLog:
+      type: object
+      required: [id, action, actorId, createdAt]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        actorId:
+          type: integer
+        actorName:
+          type: string
+        actorRole:
+          type: string
+        resourceType:
+          type: ["string", "null"]
+        resourceId:
+          type: ["integer", "null"]
+        tenantId:
+          type: ["integer", "null"]
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+
+    AuditLogsPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # REPORTS
+    ContactReport:
+      type: object
+      properties:
+        totalContacts:
+          type: integer
+        withConsent:
+          type: integer
+        withoutConsent:
+          type: integer
+        byGender:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        byAgeGroup:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        byConstituency:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+
+    CampaignReport:
+      type: object
+      properties:
+        totalCampaigns:
+          type: integer
+        totalSmsSent:
+          type: integer
+        totalDelivered:
+          type: integer
+        totalFailed:
+          type: integer
+        deliveryRate:
+          type: number
+        byMonth:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatBucket"
+        topCampaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campaign"
