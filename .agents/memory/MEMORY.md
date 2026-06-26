@@ -1,0 +1,2 @@
+- [Orval mutation patterns](orval-mutation-patterns.md) — all generated mutations require `{ data: Body }` wrapper; query hooks return typed data directly with no wrapper
+- [API schema field names](api-schema-fields.md) — key non-obvious field names that differ from intuitive names (status vs isActive, actorName vs userName, etc.)
