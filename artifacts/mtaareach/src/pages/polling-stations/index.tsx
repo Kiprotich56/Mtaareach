@@ -48,7 +48,6 @@ export default function PollingStations() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Select value={selectedCounty?.toString() ?? "__all"} onValueChange={(v) => {
           const id = v === "__all" ? null : Number(v);
@@ -87,7 +86,10 @@ export default function PollingStations() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Polling Stations</CardTitle>
-          <CardDescription>{isLoading ? "Loading…" : `${stations?.length ?? 0} stations`}{wardFilter ? " in selected ward" : ""}</CardDescription>
+          <CardDescription>
+            {isLoading ? "Loading…" : `${stations?.length ?? 0} stations`}
+            {wardFilter ? " in selected ward" : ""}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -104,9 +106,7 @@ export default function PollingStations() {
                 {isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 4 }).map((_, j) => (
-                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                      ))}
+                      {Array.from({ length: 4 }).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
                     </TableRow>
                   ))
                 ) : !wardFilter ? (
@@ -126,8 +126,8 @@ export default function PollingStations() {
                   stations?.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.name}</TableCell>
-                      <TableCell className="font-mono text-sm text-muted-foreground">{s.code ?? "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{s.wardName}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">{s.code}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.wardName ?? "—"}</TableCell>
                       <TableCell className="text-right text-sm font-medium">{s.registeredVoters?.toLocaleString() ?? "—"}</TableCell>
                     </TableRow>
                   ))
@@ -148,7 +148,7 @@ export default function PollingStations() {
                 <Input placeholder="e.g. Eldoret North Primary" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>Code <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Label>Code</Label>
                 <Input placeholder="e.g. PS001" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value }))} />
               </div>
             </div>
@@ -169,12 +169,14 @@ export default function PollingStations() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
-              disabled={!form.name.trim() || !form.wardId || createMutation.isPending}
+              disabled={!form.name.trim() || !form.wardId || !form.code.trim() || createMutation.isPending}
               onClick={() => createMutation.mutate({
-                name: form.name,
-                wardId: form.wardId,
-                code: form.code || undefined,
-                registeredVoters: form.registeredVoters ? Number(form.registeredVoters) : undefined,
+                data: {
+                  name: form.name,
+                  code: form.code,
+                  wardId: form.wardId,
+                  registeredVoters: form.registeredVoters ? Number(form.registeredVoters) : null,
+                }
               })}
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding…</> : "Add Station"}

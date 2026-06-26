@@ -76,15 +76,12 @@ export default function Templates() {
                 <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
                   <div className="space-y-1">
                     <p className="font-semibold leading-none">{t.name}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] gap-1">
-                        <MessageSquare className="h-2.5 w-2.5" />{sms} SMS · {chars} chars
-                      </Badge>
-                    </div>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <MessageSquare className="h-2.5 w-2.5" />{sms} SMS · {chars} chars
+                    </Badge>
                   </div>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant="ghost" size="icon"
                     className="shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => deleteMutation.mutate({ templateId: t.id })}
                   >
@@ -117,12 +114,8 @@ export default function Templates() {
                   {chars} chars · {sms} SMS
                 </span>
               </div>
-              <Textarea
-                rows={5}
-                placeholder="Type your message here..."
-                value={form.body}
-                onChange={(e) => setForm(f => ({ ...f, body: e.target.value }))}
-              />
+              <Textarea rows={5} placeholder="Type your message here..." value={form.body}
+                onChange={(e) => setForm(f => ({ ...f, body: e.target.value }))} />
               <p className="text-xs text-muted-foreground">Use {"{name}"} for personalisation placeholders.</p>
             </div>
           </div>
@@ -130,7 +123,7 @@ export default function Templates() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               disabled={!form.name.trim() || !form.body.trim() || createMutation.isPending}
-              onClick={() => createMutation.mutate(form)}
+              onClick={() => createMutation.mutate({ data: { name: form.name, body: form.body } })}
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</> : "Save Template"}
             </Button>

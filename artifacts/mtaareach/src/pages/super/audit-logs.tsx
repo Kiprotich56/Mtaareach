@@ -4,9 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, UserCircle, MessageSquare, Settings, Wallet } from "lucide-react";
+import { Shield, UserCircle, MessageSquare, Settings } from "lucide-react";
 
 const ACTION_ICONS: Record<string, React.ReactNode> = {
   login: <UserCircle className="h-3.5 w-3.5" />,
@@ -15,7 +14,6 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
   campaign_executed: <MessageSquare className="h-3.5 w-3.5" />,
   contact_imported: <UserCircle className="h-3.5 w-3.5" />,
   template_created: <Settings className="h-3.5 w-3.5" />,
-  wallet_topup: <Wallet className="h-3.5 w-3.5" />,
 };
 
 function actionLabel(action: string) {
@@ -24,33 +22,16 @@ function actionLabel(action: string) {
 
 export default function SuperAuditLogs() {
   const [page, setPage] = useState(1);
-  const [tenantFilter] = useState<number | undefined>();
 
-  const { data: logsPage, isLoading } = useListAuditLogs({
-    page,
-    limit: 25,
-    tenantId: tenantFilter,
-  });
+  const { data: logsPage, isLoading } = useListAuditLogs({ page, limit: 25 });
 
   const totalPages = logsPage ? Math.ceil(logsPage.total / logsPage.limit) : 1;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Audit Logs</h1>
-          <p className="text-muted-foreground">Complete activity trail across all tenants and users.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select defaultValue="__all">
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All tenants" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">All tenants</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">Audit Logs</h1>
+        <p className="text-muted-foreground">Complete activity trail across all tenants and users.</p>
       </div>
 
       <Card>
@@ -66,9 +47,9 @@ export default function SuperAuditLogs() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Action</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableHead>Actor</TableHead>
+                  <TableHead>Resource</TableHead>
+                  <TableHead>Metadata</TableHead>
                   <TableHead>Timestamp</TableHead>
                 </TableRow>
               </TableHeader>
@@ -93,11 +74,14 @@ export default function SuperAuditLogs() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {log.userName ?? <span className="text-muted-foreground italic">System</span>}
+                        <div>{log.actorName ?? <span className="text-muted-foreground italic">System</span>}</div>
+                        {log.actorRole && <div className="text-xs text-muted-foreground">{log.actorRole}</div>}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{log.tenantName ?? "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {log.resourceType ? `${log.resourceType}${log.resourceId ? ` #${log.resourceId}` : ""}` : "—"}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                        {log.details ? (typeof log.details === "string" ? log.details : JSON.stringify(log.details)) : "—"}
+                        {log.metadata ? JSON.stringify(log.metadata) : "—"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(log.createdAt).toLocaleDateString()}{" "}

@@ -31,8 +31,10 @@ export default function Reports() {
 
   const genderData = contactReport?.byGender?.map((b) => ({ name: b.label, value: b.count })) ?? [];
   const ageData = contactReport?.byAgeGroup?.map((b) => ({ name: b.label, value: b.count })) ?? [];
-  const countyData = geoSummary?.byCounty?.map((b) => ({ name: b.countyName, contacts: b.contactCount })) ?? [];
-  const campaignStatusData = campaignReport?.byCampaignStatus?.map((b) => ({ name: b.label, value: b.count })) ?? [];
+  const countyData = geoSummary?.byCounty?.map((b) => ({ name: b.label, contacts: b.count })) ?? [];
+  const monthlyData = campaignReport?.byMonth?.map((b) => ({ name: b.label, count: b.count })) ?? [];
+
+  const deliveryPct = Math.round((campaignReport?.deliveryRate ?? 0) * 100);
 
   return (
     <div className="space-y-6">
@@ -41,22 +43,22 @@ export default function Reports() {
         <p className="text-muted-foreground">Analytics across contacts, campaigns, and geography.</p>
       </div>
 
-      {/* Contact KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {crLoading ? Array.from({ length: 4 }).map((_, i) => (
+        {crLoading || camLoading ? Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}><CardContent className="p-5"><Skeleton className="h-12 w-full" /></CardContent></Card>
         )) : (
           <>
-            <StatCard icon={<Users className="h-5 w-5" />} label="Total Contacts" value={(contactReport?.total ?? 0).toLocaleString()} />
-            <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Opted In" value={(contactReport?.optedIn ?? 0).toLocaleString()} sub={`${Math.round(((contactReport?.optedIn ?? 0) / (contactReport?.total || 1)) * 100)}% of total`} />
-            <StatCard icon={<MessageSquare className="h-5 w-5" />} label="Campaigns Run" value={(campaignReport?.totalCampaigns ?? 0).toLocaleString()} />
-            <StatCard icon={<MapPin className="h-5 w-5" />} label="SMS Delivered" value={(campaignReport?.totalSmsDelivered ?? 0).toLocaleString()} sub={`${Math.round((campaignReport?.deliveryRate ?? 0) * 100)}% delivery rate`} />
+            <StatCard icon={<Users className="h-5 w-5" />} label="Total Contacts" value={(contactReport?.totalContacts ?? 0).toLocaleString()} />
+            <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Opted In" value={(contactReport?.withConsent ?? 0).toLocaleString()}
+              sub={`${Math.round(((contactReport?.withConsent ?? 0) / (contactReport?.totalContacts || 1)) * 100)}% of total`} />
+            <StatCard icon={<MessageSquare className="h-5 w-5" />} label="Total SMS Sent" value={(campaignReport?.totalSmsSent ?? 0).toLocaleString()} />
+            <StatCard icon={<MapPin className="h-5 w-5" />} label="Delivery Rate" value={`${deliveryPct}%`}
+              sub={`${(campaignReport?.totalDelivered ?? 0).toLocaleString()} delivered`} />
           </>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Contacts by County */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Contacts by County</CardTitle>
@@ -77,7 +79,6 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* Contacts by Gender */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Contacts by Gender</CardTitle>
@@ -87,7 +88,8 @@ export default function Reports() {
             {crLoading ? <Skeleton className="h-48 w-48 rounded-full" /> : (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
+                  <Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+                    label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
                     {genderData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
@@ -97,7 +99,6 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* Contacts by Age Group */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Contacts by Age Group</CardTitle>
@@ -118,26 +119,52 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* Campaigns by Status */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Campaigns by Status</CardTitle>
-            <CardDescription>Campaign lifecycle</CardDescription>
+            <CardTitle className="text-base">SMS Activity by Month</CardTitle>
+            <CardDescription>Campaign message volumes</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center">
-            {camLoading ? <Skeleton className="h-48 w-48 rounded-full" /> : (
+          <CardContent>
+            {camLoading ? <Skeleton className="h-48 w-full" /> : monthlyData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No monthly data yet.</div>
+            ) : (
               <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={campaignStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
-                    {campaignStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
+                <BarChart data={monthlyData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Legend />
-                </PieChart>
+                  <Bar dataKey="count" fill="#40916c" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
+
+        {genderData.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Constituency Breakdown</CardTitle>
+              <CardDescription>Contacts per constituency</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {crLoading ? <Skeleton className="h-48 w-full" /> : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart
+                    data={contactReport?.byConstituency?.map(b => ({ name: b.label, value: b.count })) ?? []}
+                    margin={{ top: 4, right: 16, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#74c69d" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

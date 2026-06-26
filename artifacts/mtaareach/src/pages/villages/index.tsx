@@ -13,6 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Loader2, MapPin } from "lucide-react";
+import type { VillageStatus } from "@workspace/api-client-react";
+
+function statusBadge(status: VillageStatus) {
+  if (status === "active") return <Badge variant="secondary" className="text-green-700 bg-green-100">Active</Badge>;
+  if (status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+  return <Badge variant="outline">Pending</Badge>;
+}
 
 export default function Villages() {
   const queryClient = useQueryClient();
@@ -49,7 +56,6 @@ export default function Villages() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Select value={selectedCounty?.toString() ?? "__all"} onValueChange={(v) => {
           const id = v === "__all" ? null : Number(v);
@@ -64,15 +70,11 @@ export default function Villages() {
           </SelectContent>
         </Select>
 
-        <Select
-          disabled={!selectedCounty}
-          value={selectedConstituency?.toString() ?? "__all"}
-          onValueChange={(v) => {
-            const id = v === "__all" ? null : Number(v);
-            setSelectedConstituency(id);
-            setWardFilter(undefined);
-          }}
-        >
+        <Select disabled={!selectedCounty} value={selectedConstituency?.toString() ?? "__all"} onValueChange={(v) => {
+          const id = v === "__all" ? null : Number(v);
+          setSelectedConstituency(id);
+          setWardFilter(undefined);
+        }}>
           <SelectTrigger><SelectValue placeholder="All Constituencies" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__all">All Constituencies</SelectItem>
@@ -80,11 +82,7 @@ export default function Villages() {
           </SelectContent>
         </Select>
 
-        <Select
-          disabled={!selectedConstituency}
-          value={wardFilter?.toString() ?? "__all"}
-          onValueChange={(v) => setWardFilter(v === "__all" ? undefined : Number(v))}
-        >
+        <Select disabled={!selectedConstituency} value={wardFilter?.toString() ?? "__all"} onValueChange={(v) => setWardFilter(v === "__all" ? undefined : Number(v))}>
           <SelectTrigger><SelectValue placeholder="All Wards" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__all">All Wards</SelectItem>
@@ -96,7 +94,10 @@ export default function Villages() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Villages</CardTitle>
-          <CardDescription>{isLoading ? "Loading…" : `${villages?.length ?? 0} villages`}{wardFilter ? " in selected ward" : ""}</CardDescription>
+          <CardDescription>
+            {isLoading ? "Loading…" : `${villages?.length ?? 0} villages`}
+            {wardFilter ? " in selected ward" : ""}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -106,16 +107,14 @@ export default function Villages() {
                   <TableHead>Village Name</TableHead>
                   <TableHead>Ward</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Contacts</TableHead>
+                  <TableHead>Population</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 4 }).map((_, j) => (
-                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                      ))}
+                      {Array.from({ length: 4 }).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
                     </TableRow>
                   ))
                 ) : !wardFilter ? (
@@ -135,13 +134,9 @@ export default function Villages() {
                   villages?.map((v) => (
                     <TableRow key={v.id}>
                       <TableCell className="font-medium">{v.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{v.wardName}</TableCell>
-                      <TableCell>
-                        {v.isApproved
-                          ? <Badge variant="secondary" className="text-green-700 bg-green-100">Approved</Badge>
-                          : <Badge variant="outline">Pending</Badge>}
-                      </TableCell>
-                      <TableCell><Badge variant="secondary">{v.contactCount ?? 0}</Badge></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{v.wardName ?? "—"}</TableCell>
+                      <TableCell>{statusBadge(v.status)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{v.population?.toLocaleString() ?? "—"}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -174,7 +169,7 @@ export default function Villages() {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               disabled={!form.name.trim() || !form.wardId || createMutation.isPending}
-              onClick={() => createMutation.mutate({ name: form.name, wardId: form.wardId })}
+              onClick={() => createMutation.mutate({ data: { name: form.name, wardId: form.wardId } })}
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding…</> : "Add Village"}
             </Button>

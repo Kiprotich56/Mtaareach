@@ -13,6 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Plus, Loader2, MoreHorizontal, Building2, UserCheck, UserX } from "lucide-react";
+import type { TenantStatus } from "@workspace/api-client-react";
+
+function statusBadge(status: TenantStatus) {
+  if (status === "active") return <Badge variant="secondary" className="text-green-700 bg-green-100">Active</Badge>;
+  if (status === "suspended") return <Badge variant="destructive">Suspended</Badge>;
+  return <Badge variant="outline">Inactive</Badge>;
+}
 
 export default function SuperTenants() {
   const queryClient = useQueryClient();
@@ -22,7 +29,7 @@ export default function SuperTenants() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
         setOpen(false);
-        setForm({ name: "", slug: "", contactEmail: "", adminEmail: "", adminPassword: "", adminFirstName: "", adminLastName: "" });
+        setForm({ name: "", slug: "", timezone: "Africa/Nairobi", smsRatePerMessage: 1.5 });
       }
     }
   });
@@ -30,10 +37,7 @@ export default function SuperTenants() {
   const deactivateMutation = useDeactivateTenant({ mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tenants"] }) } });
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "", slug: "", contactEmail: "",
-    adminEmail: "", adminPassword: "", adminFirstName: "", adminLastName: ""
-  });
+  const [form, setForm] = useState({ name: "", slug: "", timezone: "Africa/Nairobi", smsRatePerMessage: 1.5 });
 
   function toSlug(name: string) {
     return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -63,8 +67,8 @@ export default function SuperTenants() {
                 <TableRow>
                   <TableHead>Organisation</TableHead>
                   <TableHead>Slug</TableHead>
-                  <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Wallet Balance</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -92,11 +96,9 @@ export default function SuperTenants() {
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.name}</TableCell>
                       <TableCell className="font-mono text-sm text-muted-foreground">{t.slug}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{t.contactEmail}</TableCell>
-                      <TableCell>
-                        <Badge variant={t.isActive ? "secondary" : "outline"} className={t.isActive ? "text-green-700 bg-green-100" : ""}>
-                          {t.isActive ? "Active" : "Inactive"}
-                        </Badge>
+                      <TableCell>{statusBadge(t.status)}</TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {t.walletBalance != null ? `KES ${t.walletBalance.toLocaleString()}` : "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(t.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
@@ -107,13 +109,13 @@ export default function SuperTenants() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {t.isActive ? (
-                              <DropdownMenuItem className="text-destructive gap-2" onClick={() => deactivateMutation.mutate({ tenantId: t.id })}>
-                                <UserX className="h-3.5 w-3.5" /> Deactivate
-                              </DropdownMenuItem>
-                            ) : (
+                            {t.status !== "active" ? (
                               <DropdownMenuItem className="gap-2" onClick={() => activateMutation.mutate({ tenantId: t.id })}>
                                 <UserCheck className="h-3.5 w-3.5" /> Activate
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem className="text-destructive gap-2" onClick={() => deactivateMutation.mutate({ tenantId: t.id })}>
+                                <UserX className="h-3.5 w-3.5" /> Deactivate
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -129,63 +131,38 @@ export default function SuperTenants() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader><DialogTitle>Create Tenant</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2 col-span-2">
-                <Label>Organisation Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm(f => ({ ...f, name: e.target.value, slug: toSlug(e.target.value) }))}
-                  placeholder="e.g. Nandi Outreach"
-                />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>Slug</Label>
-                <Input value={form.slug} onChange={(e) => setForm(f => ({ ...f, slug: toSlug(e.target.value) }))} placeholder="nandi-outreach" />
-                <p className="text-xs text-muted-foreground">Unique URL-safe identifier for this tenant.</p>
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>Contact Email</Label>
-                <Input type="email" value={form.contactEmail} onChange={(e) => setForm(f => ({ ...f, contactEmail: e.target.value }))} />
-              </div>
+            <div className="space-y-2">
+              <Label>Organisation Name</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm(f => ({ ...f, name: e.target.value, slug: toSlug(e.target.value) }))}
+                placeholder="e.g. Nandi Outreach"
+              />
             </div>
-            <div className="border-t pt-4 space-y-3">
-              <p className="text-sm font-medium">Admin Account</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>First Name</Label>
-                  <Input value={form.adminFirstName} onChange={(e) => setForm(f => ({ ...f, adminFirstName: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Last Name</Label>
-                  <Input value={form.adminLastName} onChange={(e) => setForm(f => ({ ...f, adminLastName: e.target.value }))} />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Admin Email</Label>
-                  <Input type="email" value={form.adminEmail} onChange={(e) => setForm(f => ({ ...f, adminEmail: e.target.value }))} />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Admin Password</Label>
-                  <Input type="password" value={form.adminPassword} onChange={(e) => setForm(f => ({ ...f, adminPassword: e.target.value }))} />
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label>Slug</Label>
+              <Input value={form.slug} onChange={(e) => setForm(f => ({ ...f, slug: toSlug(e.target.value) }))} placeholder="nandi-outreach" />
+              <p className="text-xs text-muted-foreground">Unique URL-safe identifier.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>SMS Rate per Message (KES)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.smsRatePerMessage}
+                onChange={(e) => setForm(f => ({ ...f, smsRatePerMessage: parseFloat(e.target.value) || 0 }))}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
-              disabled={!form.name || !form.slug || !form.contactEmail || !form.adminEmail || !form.adminPassword || createMutation.isPending}
-              onClick={() => createMutation.mutate({
-                name: form.name,
-                slug: form.slug,
-                contactEmail: form.contactEmail,
-                adminEmail: form.adminEmail,
-                adminPassword: form.adminPassword,
-                adminFirstName: form.adminFirstName,
-                adminLastName: form.adminLastName,
-              })}
+              disabled={!form.name || !form.slug || createMutation.isPending}
+              onClick={() => createMutation.mutate({ data: { name: form.name, slug: form.slug, timezone: form.timezone, smsRatePerMessage: form.smsRatePerMessage } })}
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating…</> : "Create Tenant"}
             </Button>

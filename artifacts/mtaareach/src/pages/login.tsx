@@ -34,7 +34,7 @@ export default function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    loginMutation.mutate({ email, password });
+    loginMutation.mutate({ data: { email, password } });
   };
 
   return (

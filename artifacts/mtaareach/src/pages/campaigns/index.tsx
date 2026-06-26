@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  useListCampaigns, useCreateCampaign, usePreviewCampaign,
+  useListCampaigns, useCreateCampaign,
   useListSenderIds, useListTemplates, useListGroups,
   useListCounties, useListConstituencies, useListWards,
   CampaignStatus, CampaignInput, AudienceFilter
@@ -106,7 +106,6 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
     selectedConstituency ? { constituencyId: selectedConstituency } : undefined
   );
 
-  const previewMutation = usePreviewCampaign();
   const createMutation = useCreateCampaign({
     mutation: {
       onSuccess: () => {
@@ -132,7 +131,6 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
     (f.constituencyIds?.length ?? 0) + (f.countyIds?.length ?? 0);
 
   function handleNext() {
-    if (step === 2) previewMutation.mutate(form);
     setStep((s) => (s < 4 ? (s + 1) as Step : s));
   }
 
@@ -142,7 +140,7 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
       sendNow: schedule === "now",
       scheduledAt: schedule === "later" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
     };
-    createMutation.mutate(payload);
+    createMutation.mutate({ data: payload });
   }
 
   return (
@@ -303,61 +301,31 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
       {/* Step 3: Preview */}
       {step === 3 && (
         <div className="flex-1 space-y-4">
-          {previewMutation.isPending ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Calculating audience…</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Audience filters", value: audienceIds(form.audience) || "All contacts", icon: <Users className="h-4 w-4 text-primary" /> },
+                { label: "SMS parts per msg", value: smsInfo(form.body).parts, icon: <MessageSquare className="h-4 w-4 text-blue-600" /> },
+                { label: "Message length", value: `${smsInfo(form.body).chars} chars`, icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
+                { label: "Est. cost per 100", value: `KES ${(SMS_COST_KES * smsInfo(form.body).parts * 100).toFixed(2)}`, icon: <Wallet className="h-4 w-4 text-amber-600" /> },
+              ].map(({ label, value, icon }) => (
+                <Card key={label}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    {icon}
+                    <div>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-lg font-bold">{value}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          ) : previewMutation.data ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Total matched", value: previewMutation.data.totalSelected, icon: <Users className="h-4 w-4 text-primary" /> },
-                  { label: "Eligible (opted-in)", value: previewMutation.data.eligible, icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
-                  { label: "Excluded (opted-out)", value: previewMutation.data.excluded, icon: <XCircle className="h-4 w-4 text-muted-foreground" /> },
-                  { label: "Est. cost (KES)", value: `KES ${previewMutation.data.estimatedCost.toFixed(2)}`, icon: <Wallet className="h-4 w-4 text-amber-600" /> },
-                ].map(({ label, value, icon }) => (
-                  <Card key={label}>
-                    <CardContent className="p-4 flex items-center gap-3">
-                      {icon}
-                      <div>
-                        <p className="text-xs text-muted-foreground">{label}</p>
-                        <p className="text-lg font-bold">{value}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card className={previewMutation.data.canAfford ? "border-green-200 bg-green-50" : "border-destructive bg-destructive/5"}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  {previewMutation.data.canAfford
-                    ? <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                    : <AlertCircle className="h-5 w-5 text-destructive shrink-0" />}
-                  <div>
-                    <p className="text-sm font-medium">
-                      {previewMutation.data.canAfford ? "Sufficient balance" : "Insufficient wallet balance"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Wallet: KES {previewMutation.data.walletBalance.toFixed(2)} ·
-                      Required: KES {previewMutation.data.estimatedCost.toFixed(2)}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="border rounded-md p-4 space-y-2 bg-muted/30">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message preview</p>
-                <p className="text-sm whitespace-pre-wrap">{form.body}</p>
-                <p className="text-xs text-muted-foreground">Sender: {form.senderId} · {smsInfo(form.body).parts} SMS per recipient</p>
-              </div>
+            <div className="border rounded-md p-4 space-y-2 bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message preview</p>
+              <p className="text-sm whitespace-pre-wrap">{form.body}</p>
+              <p className="text-xs text-muted-foreground">Sender: {form.senderId} · {smsInfo(form.body).parts} SMS per recipient</p>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              Failed to load preview. Check your audience selection.
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -395,11 +363,7 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
           <div className="border rounded-md p-4 space-y-2 bg-muted/30 text-sm">
             <p className="font-semibold">{form.name}</p>
             <p className="text-muted-foreground">Sender: {form.senderId}</p>
-            {previewMutation.data && (
-              <>
-                <p className="text-muted-foreground">{previewMutation.data.eligible} recipients · KES {previewMutation.data.estimatedCost.toFixed(2)} estimated cost</p>
-              </>
-            )}
+            <p className="text-muted-foreground">{smsInfo(form.body).parts} SMS part(s) per recipient · {audienceIds(form.audience) || "All"} audience filter(s)</p>
           </div>
         </div>
       )}
@@ -423,7 +387,7 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
         ) : (
           <Button
             onClick={handleLaunch}
-            disabled={createMutation.isPending || !previewMutation.data?.canAfford || (schedule === "later" && !scheduledAt)}
+            disabled={createMutation.isPending || (schedule === "later" && !scheduledAt)}
           >
             {createMutation.isPending
               ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Launching…</>

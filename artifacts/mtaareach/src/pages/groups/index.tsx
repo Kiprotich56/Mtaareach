@@ -86,20 +86,16 @@ export default function Groups() {
                   groups?.map((g) => (
                     <TableRow key={g.id}>
                       <TableCell className="font-medium">{g.name}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{g.description || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{g.description ?? "—"}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{g.memberCount ?? 0}</Badge>
+                        <Badge variant="secondary">{g.memberCount}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(g.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteMutation.mutate({ groupId: g.id })}
-                        >
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteMutation.mutate({ groupId: g.id })}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </TableCell>
@@ -120,18 +116,20 @@ export default function Groups() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Group Name</Label>
-              <Input placeholder="e.g. Eldoret North Youth" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
+              <Input placeholder="e.g. Eldoret North Youth" value={form.name}
+                onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Textarea rows={3} placeholder="What is this group for?" value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
+              <Textarea rows={3} placeholder="What is this group for?" value={form.description}
+                onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               disabled={!form.name.trim() || createMutation.isPending}
-              onClick={() => createMutation.mutate(form)}
+              onClick={() => createMutation.mutate({ data: { name: form.name, description: form.description || undefined } })}
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating…</> : "Create Group"}
             </Button>

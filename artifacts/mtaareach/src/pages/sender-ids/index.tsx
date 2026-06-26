@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -28,13 +27,13 @@ export default function SenderIds() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/sender-ids"] });
         setOpen(false);
-        setForm({ name: "", justification: "" });
+        setForm({ name: "" });
       }
     }
   });
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", justification: "" });
+  const [form, setForm] = useState({ name: "" });
 
   return (
     <div className="space-y-6">
@@ -60,7 +59,8 @@ export default function SenderIds() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Justification</TableHead>
+                  <TableHead>Rejection Reason</TableHead>
+                  <TableHead>Default</TableHead>
                   <TableHead>Requested</TableHead>
                 </TableRow>
               </TableHeader>
@@ -68,14 +68,14 @@ export default function SenderIds() {
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 4 }).map((_, j) => (
+                      {Array.from({ length: 5 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : senderIds?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       No sender IDs yet. Request one to start sending campaigns.
                     </TableCell>
                   </TableRow>
@@ -84,7 +84,10 @@ export default function SenderIds() {
                     <TableRow key={s.id}>
                       <TableCell className="font-mono font-semibold">{s.name}</TableCell>
                       <TableCell><StatusBadge status={s.status} /></TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{s.justification || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{s.rejectionReason ?? "—"}</TableCell>
+                      <TableCell>
+                        {s.isDefault ? <Badge variant="secondary" className="text-xs">Default</Badge> : "—"}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))
@@ -109,23 +112,14 @@ export default function SenderIds() {
                 value={form.name}
                 onChange={(e) => setForm(f => ({ ...f, name: e.target.value.toUpperCase() }))}
               />
-              <p className="text-xs text-muted-foreground">Max 11 characters, alphanumeric only. This is what recipients see as the "From" name.</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Justification</Label>
-              <Textarea
-                rows={3}
-                placeholder="Explain what this sender ID will be used for…"
-                value={form.justification}
-                onChange={(e) => setForm(f => ({ ...f, justification: e.target.value }))}
-              />
+              <p className="text-xs text-muted-foreground">Max 11 characters. This is what recipients see as the "From" name.</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               disabled={!form.name.trim() || requestMutation.isPending}
-              onClick={() => requestMutation.mutate(form)}
+              onClick={() => requestMutation.mutate({ data: { name: form.name } })}
             >
               {requestMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting…</> : "Submit Request"}
             </Button>

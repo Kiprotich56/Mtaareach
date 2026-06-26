@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { SenderIdStatus } from "@workspace/api-client-react";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
-
-type SenderIdStatus = "pending" | "approved" | "rejected" | string;
 
 function StatusBadge({ status }: { status: SenderIdStatus }) {
   if (status === "approved") return <Badge variant="secondary" className="gap-1 text-green-700 bg-green-100"><CheckCircle2 className="h-3 w-3" />Approved</Badge>;
@@ -47,7 +46,7 @@ export default function SuperSenderIds() {
                   <TableRow>
                     <TableHead>Sender ID</TableHead>
                     <TableHead>Tenant</TableHead>
-                    <TableHead>Justification</TableHead>
+                    <TableHead>Rejection Reason</TableHead>
                     <TableHead>Requested</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -56,13 +55,13 @@ export default function SuperSenderIds() {
                   {pending.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono font-semibold">{s.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{(s as any).tenantName ?? `Tenant #${s.tenantId}`}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs">{s.justification || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.tenantName ?? `Tenant #${s.tenantId}`}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.rejectionReason ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button size="sm" variant="outline" className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                            onClick={() => rejectMutation.mutate({ senderIdId: s.id })}>
+                            onClick={() => rejectMutation.mutate({ senderIdId: s.id, data: { reason: "Does not meet requirements" } })}>
                             <XCircle className="h-3.5 w-3.5" /> Reject
                           </Button>
                           <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700"
@@ -93,7 +92,7 @@ export default function SuperSenderIds() {
                   <TableHead>Sender ID</TableHead>
                   <TableHead>Tenant</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Justification</TableHead>
+                  <TableHead>Rejection Reason</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -112,9 +111,9 @@ export default function SuperSenderIds() {
                   others.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono font-semibold">{s.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{(s as any).tenantName ?? `Tenant #${s.tenantId}`}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.tenantName ?? `Tenant #${s.tenantId}`}</TableCell>
                       <TableCell><StatusBadge status={s.status} /></TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{s.justification || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{s.rejectionReason ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))
