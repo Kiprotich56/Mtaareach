@@ -1,13 +1,14 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/lib/auth";
-import { 
-  LayoutDashboard, 
-  Users, 
-  MessageSquare, 
-  MapPin, 
-  CreditCard, 
-  FileText, 
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import {
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  MapPin,
+  CreditCard,
+  FileText,
   Settings,
   LogOut,
   Building,
@@ -17,7 +18,7 @@ import {
   Menu,
   PhoneForwarded,
   FileCode2,
-  UsersRound
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -34,6 +35,27 @@ import {
 interface AppLayoutProps {
   children: ReactNode;
 }
+
+const sidebarVariants: Variants = {
+  hidden: { x: -20, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.3, ease: "easeOut" as const } },
+};
+
+const navListVariants: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
+};
+
+const navItemVariants: Variants = {
+  hidden: { x: -12, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.25, ease: "easeOut" as const } },
+};
+
+const pageVariants: Variants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" as const } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.15, ease: "easeIn" as const } },
+};
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, isSuperAdmin, clearSession } = useAuthStore();
@@ -70,26 +92,58 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const navItems = isSuperAdmin ? superAdminNavItems : tenantNavItems;
 
-  const NavLinks = () => (
-    <>
+  const NavLinks = ({ animated = false }: { animated?: boolean }) => (
+    <motion.nav
+      variants={animated ? navListVariants : undefined}
+      initial={animated ? "hidden" : undefined}
+      animate={animated ? "visible" : undefined}
+      className="flex flex-col gap-0.5"
+    >
       {navItems.map((item) => {
         const isActive = location.startsWith(item.href);
         return (
-          <Link key={item.href} href={item.href}>
-            <div
-              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors cursor-pointer text-sm font-medium ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </div>
-          </Link>
+          <motion.div key={item.href} variants={animated ? navItemVariants : undefined}>
+            <Link href={item.href}>
+              <div className="relative flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium group transition-colors">
+                {/* Animated active pill */}
+                <AnimatePresence initial={false}>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeNavBg"
+                      className="absolute inset-0 rounded-md bg-primary"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeOut" as const }}
+                    />
+                  )}
+                </AnimatePresence>
+                {/* Hover background */}
+                {!isActive && (
+                  <div className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 bg-sidebar-accent transition-opacity duration-150" />
+                )}
+                <item.icon
+                  className={`relative h-4 w-4 transition-colors duration-150 ${
+                    isActive
+                      ? "text-primary-foreground"
+                      : "text-sidebar-foreground group-hover:text-foreground"
+                  }`}
+                />
+                <span
+                  className={`relative transition-colors duration-150 ${
+                    isActive
+                      ? "text-primary-foreground"
+                      : "text-sidebar-foreground group-hover:text-foreground"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </div>
+            </Link>
+          </motion.div>
         );
       })}
-    </>
+    </motion.nav>
   );
 
   return (
@@ -114,36 +168,59 @@ export function AppLayout({ children }: AppLayoutProps) {
               </div>
             </div>
             <div className="p-4 flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-80px)]">
-              <NavLinks />
+              <NavLinks animated={false} />
             </div>
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border min-h-screen sticky top-0">
+      <motion.div
+        variants={sidebarVariants}
+        initial="hidden"
+        animate="visible"
+        className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border min-h-screen sticky top-0"
+      >
         <div className="p-6 border-b border-sidebar-border flex items-center gap-3">
-          <div className="bg-primary p-1.5 rounded-md text-primary-foreground">
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.15, duration: 0.3, type: "spring" as const, stiffness: 260, damping: 20 }}
+            className="bg-primary p-1.5 rounded-md text-primary-foreground"
+          >
             <MessageSquare className="h-5 w-5" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-sidebar-foreground">MtaaReach</span>
+          </motion.div>
+          <motion.span
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.25, ease: "easeOut" as const }}
+            className="font-bold text-xl tracking-tight text-sidebar-foreground"
+          >
+            MtaaReach
+          </motion.span>
         </div>
-        <div className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
-          <NavLinks />
+        <div className="flex-1 p-4 overflow-y-auto">
+          <NavLinks animated={true} />
         </div>
         <div className="p-4 border-t border-sidebar-border">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start gap-3 h-12 px-2 hover:bg-sidebar-accent">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-12 px-2 hover:bg-sidebar-accent"
+              >
                 <Avatar className="h-8 w-8 border border-border">
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    {user?.firstName?.[0]}
+                    {user?.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start text-sm overflow-hidden">
-                  <span className="font-medium truncate w-full text-left">{user?.firstName} {user?.lastName}</span>
+                  <span className="font-medium truncate w-full text-left">
+                    {user?.firstName} {user?.lastName}
+                  </span>
                   <span className="text-xs text-muted-foreground truncate w-full text-left capitalize">
-                    {user?.role.replace('_', ' ')}
+                    {user?.role.replace("_", " ")}
                   </span>
                 </div>
               </Button>
@@ -151,20 +228,33 @@ export function AppLayout({ children }: AppLayoutProps) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={handleLogout}>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive cursor-pointer"
+                onClick={handleLogout}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Main Content */}
+      {/* Main Content with page transitions */}
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           <div className="mx-auto max-w-6xl w-full">
-            {children}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>
