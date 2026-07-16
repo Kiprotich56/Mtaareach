@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, contactsTable, groupsTable, groupMembersTable, wardsTable, villagesTable } from "@workspace/db";
+import { db, contactsTable, groupsTable, groupMembersTable, wardsTable, villagesTable, auditLogsTable } from "@workspace/db";
 import { eq, and, or, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth, getUser } from "../lib/auth";
 
@@ -57,6 +57,16 @@ router.post("/contacts/import", requireAuth, async (req, res): Promise<void> => 
     }
   }
 
+  db.insert(auditLogsTable).values({
+    tenantId: user.tenantId ?? null,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "contact_imported",
+    resourceType: "contacts",
+    metadata: { imported, skipped, errors: errors.length },
+  }).catch(() => {});
+
   res.json({ imported, skipped, errors });
 });
 
@@ -105,6 +115,18 @@ router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
     tenantId: user.tenantId!,
     tags: req.body.tags ?? [],
   }).returning();
+
+  db.insert(auditLogsTable).values({
+    tenantId: user.tenantId ?? null,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "contact_created",
+    resourceType: "contact",
+    resourceId: String(contact.id),
+    metadata: { phone: contact.phone },
+  }).catch(() => {});
+
   res.status(201).json(contact);
 });
 

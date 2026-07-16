@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, smsTemplatesTable, smsLogsTable, contactsTable, walletsTable, walletTransactionsTable, groupMembersTable } from "@workspace/db";
+import { db, campaignsTable, smsTemplatesTable, smsLogsTable, contactsTable, walletsTable, walletTransactionsTable, groupMembersTable, auditLogsTable } from "@workspace/db";
 import { eq, and, or, sql, inArray } from "drizzle-orm";
 import { requireAuth, getUser } from "../lib/auth";
 
@@ -117,6 +117,17 @@ router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     status: sendNow ? "queued" : "draft",
   }).returning();
+
+  db.insert(auditLogsTable).values({
+    tenantId: user.tenantId ?? null,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "campaign_created",
+    resourceType: "campaign",
+    resourceId: String(campaign.id),
+    metadata: { name: campaign.name, status: campaign.status },
+  }).catch(() => {});
 
   res.status(201).json(parseCampaign(campaign));
 });

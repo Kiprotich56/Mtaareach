@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, smsGatewaysTable, senderIdsTable, auditLogsTable, tenantsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { requireAuth, getUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -93,7 +93,7 @@ router.get("/audit-logs", requireAuth, async (req, res): Promise<void> => {
     : sql`1=1`;
 
   const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(auditLogsTable).where(where);
-  const logs = await db.select().from(auditLogsTable).where(where).orderBy(auditLogsTable.createdAt).limit(limit).offset(offset);
+  const logs = await db.select().from(auditLogsTable).where(where).orderBy(desc(auditLogsTable.createdAt)).limit(limit).offset(offset);
   res.json({ data: logs, total, page, limit });
 });
 

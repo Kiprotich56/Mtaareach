@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, sessionsTable } from "@workspace/db";
+import { db, usersTable, sessionsTable, auditLogsTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import { generateToken, hashPassword, verifyPassword, requireAuth, getUser } from "../lib/auth";
 import { logger } from "../lib/logger";
@@ -28,6 +28,16 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const token = generateToken();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await db.insert(sessionsTable).values({ userId: user.id, token, expiresAt });
+
+  // Write audit log (non-blocking)
+  db.insert(auditLogsTable).values({
+    tenantId: user.tenantId ?? null,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "login",
+    resourceType: "session",
+  }).catch(() => {});
 
   const { passwordHash: _, ...safeUser } = user;
   res.json({ user: safeUser, token });

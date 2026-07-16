@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, Fragment } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/lib/auth";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
@@ -88,6 +88,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     { label: "Wallets", href: "/super/wallet-management", icon: CreditCard },
     { label: "SMS Gateways", href: "/super/sms-gateways", icon: Server },
     { label: "Audit Logs", href: "/super/audit-logs", icon: Activity },
+    { label: "All Users", href: "/users", icon: Users, sectionTitle: "Monitor" },
+    { label: "All Contacts", href: "/contacts", icon: ShieldCheck },
+    { label: "All Campaigns", href: "/campaigns", icon: MessageSquare },
+    { label: "Reports", href: "/reports", icon: FileText },
   ];
 
   const navItems = isSuperAdmin ? superAdminNavItems : tenantNavItems;
@@ -102,45 +106,55 @@ export function AppLayout({ children }: AppLayoutProps) {
       {navItems.map((item) => {
         const isActive = location.startsWith(item.href);
         return (
-          <motion.div key={item.href} variants={animated ? navItemVariants : undefined}>
-            <Link href={item.href}>
-              <div className="relative flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium group transition-colors">
-                {/* Animated active pill */}
-                <AnimatePresence initial={false}>
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeNavBg"
-                      className="absolute inset-0 rounded-md bg-primary"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2, ease: "easeOut" as const }}
-                    />
-                  )}
-                </AnimatePresence>
-                {/* Hover background */}
-                {!isActive && (
-                  <div className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 bg-sidebar-accent transition-opacity duration-150" />
-                )}
-                <item.icon
-                  className={`relative h-4 w-4 transition-colors duration-150 ${
-                    isActive
-                      ? "text-primary-foreground"
-                      : "text-sidebar-foreground group-hover:text-foreground"
-                  }`}
-                />
-                <span
-                  className={`relative transition-colors duration-150 ${
-                    isActive
-                      ? "text-primary-foreground"
-                      : "text-sidebar-foreground group-hover:text-foreground"
-                  }`}
-                >
-                  {item.label}
+          <Fragment key={item.href}>
+            {"sectionTitle" in item && item.sectionTitle && (
+              <div className="pt-3 pb-1 px-3 flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                  {item.sectionTitle}
                 </span>
+                <div className="flex-1 border-t border-sidebar-border/60" />
               </div>
-            </Link>
-          </motion.div>
+            )}
+            <motion.div variants={animated ? navItemVariants : undefined}>
+              <Link href={item.href}>
+                <div className="relative flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium group transition-colors">
+                  {/* Animated active pill */}
+                  <AnimatePresence initial={false}>
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeNavBg"
+                        className="absolute inset-0 rounded-md bg-primary"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: "easeOut" as const }}
+                      />
+                    )}
+                  </AnimatePresence>
+                  {/* Hover background */}
+                  {!isActive && (
+                    <div className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100 bg-sidebar-accent transition-opacity duration-150" />
+                  )}
+                  <item.icon
+                    className={`relative h-4 w-4 transition-colors duration-150 ${
+                      isActive
+                        ? "text-primary-foreground"
+                        : "text-sidebar-foreground group-hover:text-foreground"
+                    }`}
+                  />
+                  <span
+                    className={`relative transition-colors duration-150 ${
+                      isActive
+                        ? "text-primary-foreground"
+                        : "text-sidebar-foreground group-hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
+          </Fragment>
         );
       })}
     </motion.nav>
