@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, campaignsTable, smsTemplatesTable, smsLogsTable, contactsTable, walletsTable, walletTransactionsTable, groupMembersTable, auditLogsTable } from "@workspace/db";
 import { eq, and, or, sql, inArray } from "drizzle-orm";
 import { requireAuth, getUser } from "../lib/auth";
+import { dispatchCampaign } from "../lib/campaignDispatch";
 
 const router: IRouter = Router();
 
@@ -130,6 +131,15 @@ router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
   }).catch(() => {});
 
   res.status(201).json(parseCampaign(campaign));
+
+  // If sendNow, kick off dispatch in the background after responding
+  if (sendNow) {
+    db.update(campaignsTable)
+      .set({ status: "sending", sentAt: new Date(), updatedAt: new Date() })
+      .where(eq(campaignsTable.id, campaign.id))
+      .then(() => dispatchCampaign(campaign.id, user))
+      .catch(() => {});
+  }
 });
 
 router.get("/campaigns/:campaignId", requireAuth, async (req, res): Promise<void> => {
@@ -177,6 +187,26 @@ router.post("/campaigns/:campaignId/preview", requireAuth, async (req, res): Pro
   const balance = parseFloat(wallet?.balance ?? "0");
   const cost = total * 1.0;
   res.json({ totalSelected: total, eligible: total, excluded: 0, estimatedCost: cost, walletBalance: balance, canAfford: balance >= cost });
+});
+
+router.post("/campaigns/:campaignId/execute", requireAuth, async (req, res): Promise<void> => {
+  const user = getUser(req);
+  const id = parseInt(req.params.campaignId as string, 10);
+
+  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (!["draft", "queued", "paused"].includes(campaign.status)) {
+    res.status(400).json({ error: `Cannot execute a campaign with status "${campaign.status}"` }); return;
+  }
+
+  await db.update(campaignsTable)
+    .set({ status: "sending", sentAt: new Date(), updatedAt: new Date() })
+    .where(eq(campaignsTable.id, id));
+
+  res.json({ message: "Campaign dispatch started", campaignId: id });
+
+  // Dispatch async — does not block the response
+  dispatchCampaign(id, user).catch(() => {});
 });
 
 // SMS Logs

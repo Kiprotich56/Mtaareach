@@ -5,7 +5,7 @@ import {
   useListCounties, useListConstituencies, useListWards,
   CampaignStatus, CampaignInput, AudienceFilter
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -400,9 +400,27 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
   );
 }
 
+function useExecuteCampaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (campaignId: number) => {
+      const res = await fetch(`/api/campaigns/${campaignId}/execute`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to execute campaign");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+    },
+  });
+}
+
 export default function Campaigns() {
   const [open, setOpen] = useState(false);
   const { data: campaigns, isLoading } = useListCampaigns({ page: 1, limit: 20 });
+  const executeMutation = useExecuteCampaign();
 
   return (
     <div className="space-y-6">
@@ -433,20 +451,21 @@ export default function Campaigns() {
                   <TableHead>Delivered</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : campaigns?.data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center">
+                    <TableCell colSpan={8} className="h-32 text-center">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <MessageSquare className="h-8 w-8 opacity-40" />
                         <p>No campaigns yet. Create your first one!</p>
@@ -467,6 +486,26 @@ export default function Campaigns() {
                       </TableCell>
                       <TableCell className="text-sm">{c.actualCost != null ? `KES ${c.actualCost.toFixed(2)}` : "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {(c.status === "draft" || c.status === "queued") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            disabled={executeMutation.isPending && executeMutation.variables === c.id}
+                            onClick={() => executeMutation.mutate(c.id)}
+                          >
+                            {executeMutation.isPending && executeMutation.variables === c.id
+                              ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                              : <><Send className="h-3 w-3" />Send</>}
+                          </Button>
+                        )}
+                        {c.status === "sending" && (
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />Sending…
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
