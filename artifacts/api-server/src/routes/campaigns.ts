@@ -111,12 +111,13 @@ router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
   const { name, senderId, body, templateId, audience, scheduledAt, sendNow } = req.body;
   if (!name || !senderId || !body) { res.status(400).json({ error: "name, senderId, body required" }); return; }
 
+  // sendNow means the tenant wants to send — it goes to pending_approval for super admin review
   const [campaign] = await db.insert(campaignsTable).values({
     name, senderId, body, tenantId: user.tenantId!,
     templateId: templateId ?? null,
     audienceFilter: audience ?? {},
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-    status: sendNow ? "queued" : "draft",
+    status: sendNow ? "pending_approval" : "draft",
   }).returning();
 
   db.insert(auditLogsTable).values({
@@ -131,15 +132,7 @@ router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
   }).catch(() => {});
 
   res.status(201).json(parseCampaign(campaign));
-
-  // If sendNow, kick off dispatch in the background after responding
-  if (sendNow) {
-    db.update(campaignsTable)
-      .set({ status: "sending", sentAt: new Date(), updatedAt: new Date() })
-      .where(eq(campaignsTable.id, campaign.id))
-      .then(() => dispatchCampaign(campaign.id, user))
-      .catch(() => {});
-  }
+  // No immediate dispatch — campaign awaits super admin approval
 });
 
 router.get("/campaigns/:campaignId", requireAuth, async (req, res): Promise<void> => {
@@ -189,24 +182,98 @@ router.post("/campaigns/:campaignId/preview", requireAuth, async (req, res): Pro
   res.json({ totalSelected: total, eligible: total, excluded: 0, estimatedCost: cost, walletBalance: balance, canAfford: balance >= cost });
 });
 
+// Submit a draft campaign for super admin approval (tenant action)
 router.post("/campaigns/:campaignId/execute", requireAuth, async (req, res): Promise<void> => {
   const user = getUser(req);
   const id = parseInt(req.params.campaignId as string, 10);
 
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
-  if (!["draft", "queued", "paused"].includes(campaign.status)) {
-    res.status(400).json({ error: `Cannot execute a campaign with status "${campaign.status}"` }); return;
+  if (!["draft", "queued", "paused", "rejected"].includes(campaign.status)) {
+    res.status(400).json({ error: `Cannot submit a campaign with status "${campaign.status}"` }); return;
+  }
+
+  await db.update(campaignsTable)
+    .set({ status: "pending_approval", rejectionReason: null, updatedAt: new Date() })
+    .where(eq(campaignsTable.id, id));
+
+  db.insert(auditLogsTable).values({
+    tenantId: campaign.tenantId,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "campaign_submitted",
+    resourceType: "campaign",
+    resourceId: String(id),
+    metadata: { name: campaign.name },
+  }).catch(() => {});
+
+  res.json({ message: "Campaign submitted for approval", campaignId: id });
+});
+
+// Super admin approves a campaign — triggers dispatch
+router.post("/campaigns/:campaignId/approve", requireAuth, async (req, res): Promise<void> => {
+  const user = getUser(req);
+  if (user.role !== "super_admin") { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const id = parseInt(req.params.campaignId as string, 10);
+  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+  if (campaign.status !== "pending_approval") {
+    res.status(400).json({ error: `Campaign is "${campaign.status}", expected "pending_approval"` }); return;
   }
 
   await db.update(campaignsTable)
     .set({ status: "sending", sentAt: new Date(), updatedAt: new Date() })
     .where(eq(campaignsTable.id, id));
 
-  res.json({ message: "Campaign dispatch started", campaignId: id });
+  db.insert(auditLogsTable).values({
+    tenantId: campaign.tenantId,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "campaign_approved",
+    resourceType: "campaign",
+    resourceId: String(id),
+    metadata: { name: campaign.name },
+  }).catch(() => {});
 
-  // Dispatch async — does not block the response
+  res.json({ message: "Campaign approved — dispatch started", campaignId: id });
+
+  // Dispatch asynchronously after responding
   dispatchCampaign(id, user).catch(() => {});
+});
+
+// Super admin rejects a campaign
+router.post("/campaigns/:campaignId/reject", requireAuth, async (req, res): Promise<void> => {
+  const user = getUser(req);
+  if (user.role !== "super_admin") { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const id = parseInt(req.params.campaignId as string, 10);
+  const { reason } = req.body;
+
+  const [campaign] = await db.update(campaignsTable)
+    .set({
+      status: "rejected",
+      rejectionReason: reason ?? "Rejected by super admin",
+      updatedAt: new Date(),
+    })
+    .where(eq(campaignsTable.id, id))
+    .returning();
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  db.insert(auditLogsTable).values({
+    tenantId: campaign.tenantId,
+    actorId: user.id,
+    actorName: `${user.firstName} ${user.lastName}`,
+    actorRole: user.role,
+    action: "campaign_rejected",
+    resourceType: "campaign",
+    resourceId: String(id),
+    metadata: { name: campaign.name, reason: campaign.rejectionReason },
+  }).catch(() => {});
+
+  res.json(parseCampaign(campaign));
 });
 
 // SMS Logs

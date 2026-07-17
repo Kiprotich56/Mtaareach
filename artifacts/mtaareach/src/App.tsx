@@ -29,6 +29,8 @@ import SuperSenderIds from "@/pages/super/sender-ids";
 import SuperWallets from "@/pages/super/wallet-management";
 import SuperGateways from "@/pages/super/sms-gateways";
 import SuperAuditLogs from "@/pages/super/audit-logs";
+import SuperCampaignApprovals from "@/pages/super/campaign-approvals";
+import SuperVillageApprovals from "@/pages/super/village-approvals";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +103,8 @@ function Router() {
       <ProtectedRoute path="/super/wallet-management" component={SuperWallets} superAdminOnly={true} />
       <ProtectedRoute path="/super/sms-gateways" component={SuperGateways} superAdminOnly={true} />
       <ProtectedRoute path="/super/audit-logs" component={SuperAuditLogs} superAdminOnly={true} />
+      <ProtectedRoute path="/super/campaign-approvals" component={SuperCampaignApprovals} superAdminOnly={true} />
+      <ProtectedRoute path="/super/village-approvals" component={SuperVillageApprovals} superAdminOnly={true} />
 
       <Route component={NotFound} />
     </Switch>

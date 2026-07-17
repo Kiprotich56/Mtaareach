@@ -3,9 +3,10 @@ import {
   useListCampaigns, useCreateCampaign,
   useListSenderIds, useListTemplates, useListGroups,
   useListCounties, useListConstituencies, useListWards,
-  CampaignStatus, CampaignInput, AudienceFilter
+  CampaignInput, AudienceFilter
 } from "@workspace/api-client-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useAuthStore } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +21,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Send, Clock, CheckCircle2, XCircle, PauseCircle,
   Loader2, MessageSquare, Users, Wallet, ChevronRight, ChevronLeft,
-  AlertCircle, Zap
+  AlertCircle, Zap, ShieldAlert
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const SMS_CHARS = 160;
 const SMS_COST_KES = 1.5;
@@ -32,19 +34,25 @@ function smsInfo(text: string) {
   return { chars, parts };
 }
 
-function StatusBadge({ status }: { status: CampaignStatus }) {
-  const map: Record<CampaignStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
-    draft: { label: "Draft", variant: "outline", icon: <Clock className="h-3 w-3" /> },
-    queued: { label: "Queued", variant: "secondary", icon: <Clock className="h-3 w-3" /> },
-    sending: { label: "Sending", variant: "default", icon: <Send className="h-3 w-3" /> },
-    completed: { label: "Completed", variant: "secondary", icon: <CheckCircle2 className="h-3 w-3" /> },
-    paused: { label: "Paused", variant: "outline", icon: <PauseCircle className="h-3 w-3" /> },
-    failed: { label: "Failed", variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
+type CampaignStatusExt =
+  | "draft" | "queued" | "sending" | "completed" | "paused" | "failed"
+  | "pending_approval" | "rejected";
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode; className?: string }> = {
+    draft:            { label: "Draft",             variant: "outline",     icon: <Clock className="h-3 w-3" /> },
+    queued:           { label: "Queued",            variant: "secondary",   icon: <Clock className="h-3 w-3" /> },
+    sending:          { label: "Sending",           variant: "default",     icon: <Send className="h-3 w-3" /> },
+    completed:        { label: "Completed",         variant: "secondary",   icon: <CheckCircle2 className="h-3 w-3" /> },
+    paused:           { label: "Paused",            variant: "outline",     icon: <PauseCircle className="h-3 w-3" /> },
+    failed:           { label: "Failed",            variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
+    pending_approval: { label: "Awaiting Approval", variant: "outline",     icon: <ShieldAlert className="h-3 w-3" />, className: "text-amber-600 border-amber-400 bg-amber-50" },
+    rejected:         { label: "Rejected",          variant: "destructive", icon: <XCircle className="h-3 w-3" /> },
   };
-  const { label, variant, icon } = map[status] ?? map.draft;
+  const s = map[status] ?? map.draft;
   return (
-    <Badge variant={variant} className="gap-1 capitalize">
-      {icon}{label}
+    <Badge variant={s.variant} className={`gap-1 capitalize ${s.className ?? ""}`}>
+      {s.icon}{s.label}
     </Badge>
   );
 }
@@ -52,7 +60,7 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
 type Step = 1 | 2 | 3 | 4;
 
 function StepIndicator({ current }: { current: Step }) {
-  const steps = ["Compose", "Audience", "Preview", "Launch"];
+  const steps = ["Compose", "Audience", "Preview", "Submit"];
   return (
     <div className="flex items-center gap-0 mb-6">
       {steps.map((label, i) => {
@@ -61,7 +69,7 @@ function StepIndicator({ current }: { current: Step }) {
         const active = n === current;
         return (
           <div key={n} className="flex items-center flex-1 last:flex-none">
-            <div className={`flex flex-col items-center gap-1`}>
+            <div className="flex flex-col items-center gap-1">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors
                 ${done ? "bg-primary border-primary text-primary-foreground" : active ? "border-primary text-primary bg-primary/10" : "border-muted text-muted-foreground"}`}>
                 {done ? <CheckCircle2 className="h-4 w-4" /> : n}
@@ -79,6 +87,7 @@ function StepIndicator({ current }: { current: Step }) {
 }
 
 function CampaignBuilder({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<CampaignInput>({
@@ -108,8 +117,14 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
 
   const createMutation = useCreateCampaign({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+        toast({
+          title: data.status === "pending_approval" ? "Campaign submitted for approval" : "Campaign saved as draft",
+          description: data.status === "pending_approval"
+            ? "The super admin will review and approve your campaign before it is sent."
+            : "Your campaign has been saved. Submit it for approval when ready.",
+        });
         onClose();
       }
     }
@@ -134,10 +149,10 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
     setStep((s) => (s < 4 ? (s + 1) as Step : s));
   }
 
-  function handleLaunch() {
+  function handleSubmit() {
     const payload: CampaignInput = {
       ...form,
-      sendNow: schedule === "now",
+      sendNow: schedule === "now",  // true → pending_approval on server
       scheduledAt: schedule === "later" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
     };
     createMutation.mutate({ data: payload });
@@ -217,7 +232,6 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
         <div className="space-y-5 flex-1">
           <p className="text-sm text-muted-foreground">Filter who receives this message. Leave all empty to target all opted-in contacts.</p>
 
-          {/* Groups */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2"><Users className="h-4 w-4" />Contact Groups</Label>
             <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
@@ -234,7 +248,6 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* County */}
           <div className="space-y-2">
             <Label>County</Label>
             <Select
@@ -301,37 +314,47 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
       {/* Step 3: Preview */}
       {step === 3 && (
         <div className="flex-1 space-y-4">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Audience filters", value: audienceIds(form.audience) || "All contacts", icon: <Users className="h-4 w-4 text-primary" /> },
-                { label: "SMS parts per msg", value: smsInfo(form.body).parts, icon: <MessageSquare className="h-4 w-4 text-blue-600" /> },
-                { label: "Message length", value: `${smsInfo(form.body).chars} chars`, icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
-                { label: "Est. cost per 100", value: `KES ${(SMS_COST_KES * smsInfo(form.body).parts * 100).toFixed(2)}`, icon: <Wallet className="h-4 w-4 text-amber-600" /> },
-              ].map(({ label, value, icon }) => (
-                <Card key={label}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    {icon}
-                    <div>
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-lg font-bold">{value}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="border rounded-md p-4 space-y-2 bg-muted/30">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message preview</p>
-              <p className="text-sm whitespace-pre-wrap">{form.body}</p>
-              <p className="text-xs text-muted-foreground">Sender: {form.senderId} · {smsInfo(form.body).parts} SMS per recipient</p>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Audience filters", value: audienceIds(form.audience) || "All contacts", icon: <Users className="h-4 w-4 text-primary" /> },
+              { label: "SMS parts per msg", value: smsInfo(form.body).parts, icon: <MessageSquare className="h-4 w-4 text-blue-600" /> },
+              { label: "Message length", value: `${smsInfo(form.body).chars} chars`, icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
+              { label: "Est. cost per 100", value: `KES ${(SMS_COST_KES * smsInfo(form.body).parts * 100).toFixed(2)}`, icon: <Wallet className="h-4 w-4 text-amber-600" /> },
+            ].map(({ label, value, icon }) => (
+              <Card key={label}>
+                <CardContent className="p-4 flex items-center gap-3">
+                  {icon}
+                  <div>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-lg font-bold">{value}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="border rounded-md p-4 space-y-2 bg-muted/30">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message preview</p>
+            <p className="text-sm whitespace-pre-wrap">{form.body}</p>
+            <p className="text-xs text-muted-foreground">Sender: {form.senderId} · {smsInfo(form.body).parts} SMS per recipient</p>
           </div>
         </div>
       )}
 
-      {/* Step 4: Launch */}
+      {/* Step 4: Submit */}
       {step === 4 && (
         <div className="flex-1 space-y-5">
+          {/* Approval notice */}
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 flex gap-3">
+            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-800">Super Admin approval required</p>
+              <p className="text-amber-700 mt-1">
+                All campaigns must be reviewed and approved by the super admin before any messages are sent.
+                Submitting will put this campaign in a review queue.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             {(["now", "later"] as const).map((opt) => (
               <button
@@ -342,8 +365,8 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
                   ${schedule === opt ? "border-primary bg-primary/5 text-primary" : "border-muted text-muted-foreground hover:border-border"}`}
               >
                 {opt === "now" ? <Zap className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
-                <span className="font-semibold text-sm">{opt === "now" ? "Send Now" : "Schedule"}</span>
-                <span className="text-xs">{opt === "now" ? "Dispatch immediately" : "Pick a date & time"}</span>
+                <span className="font-semibold text-sm">{opt === "now" ? "Submit for Approval" : "Schedule"}</span>
+                <span className="text-xs text-center">{opt === "now" ? "Super admin will review & approve" : "Pick a date & time, then submit"}</span>
               </button>
             ))}
           </div>
@@ -386,12 +409,12 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
           </Button>
         ) : (
           <Button
-            onClick={handleLaunch}
+            onClick={handleSubmit}
             disabled={createMutation.isPending || (schedule === "later" && !scheduledAt)}
           >
             {createMutation.isPending
-              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Launching…</>
-              : <><Send className="h-4 w-4 mr-2" />{schedule === "now" ? "Send Now" : "Schedule Campaign"}</>
+              ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting…</>
+              : <><ShieldAlert className="h-4 w-4 mr-2" />{schedule === "now" ? "Submit for Approval" : "Save & Schedule"}</>
             }
           </Button>
         )}
@@ -400,14 +423,14 @@ function CampaignBuilder({ onClose }: { onClose: () => void }) {
   );
 }
 
-function useExecuteCampaign() {
+function useSubmitForApproval() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (campaignId: number) => {
       const res = await fetch(`/api/campaigns/${campaignId}/execute`, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to execute campaign");
+        throw new Error(err.error ?? "Failed to submit campaign");
       }
       return res.json();
     },
@@ -418,9 +441,21 @@ function useExecuteCampaign() {
 }
 
 export default function Campaigns() {
+  const { toast } = useToast();
+  const { isSuperAdmin } = useAuthStore();
   const [open, setOpen] = useState(false);
   const { data: campaigns, isLoading } = useListCampaigns({ page: 1, limit: 20 });
-  const executeMutation = useExecuteCampaign();
+  const submitMutation = useSubmitForApproval();
+
+  function handleSubmit(id: number, name: string) {
+    submitMutation.mutate(id, {
+      onSuccess: () => toast({
+        title: "Submitted for approval",
+        description: `"${name}" is now in the review queue. The super admin will approve it before sending.`,
+      }),
+      onError: (e) => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -429,10 +464,20 @@ export default function Campaigns() {
           <h1 className="text-3xl font-bold tracking-tight text-primary">Campaigns</h1>
           <p className="text-muted-foreground">Create and manage SMS outreach campaigns.</p>
         </div>
-        <Button className="gap-2" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> New Campaign
-        </Button>
+        {!isSuperAdmin && (
+          <Button className="gap-2" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" /> New Campaign
+          </Button>
+        )}
       </div>
+
+      {/* Approval reminder banner for non-super-admin */}
+      {!isSuperAdmin && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 flex items-center gap-3 text-sm text-amber-800">
+          <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+          <span>All campaigns require super admin approval before any messages are sent.</span>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -475,7 +520,15 @@ export default function Campaigns() {
                 ) : (
                   campaigns?.data.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{c.name}</div>
+                        {(c as any).rejectionReason && (
+                          <div className="text-xs text-destructive mt-0.5 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {(c as any).rejectionReason}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell><StatusBadge status={c.status} /></TableCell>
                       <TableCell className="text-sm">{c.senderId}</TableCell>
                       <TableCell className="text-sm">{c.totalRecipients ?? "—"}</TableCell>
@@ -487,18 +540,24 @@ export default function Campaigns() {
                       <TableCell className="text-sm">{c.actualCost != null ? `KES ${c.actualCost.toFixed(2)}` : "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {(c.status === "draft" || c.status === "queued") && (
+                        {/* Tenant: show Request Approval for draft/rejected; show waiting state for pending_approval */}
+                        {!isSuperAdmin && (c.status === "draft" || c.status === "rejected") && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="gap-1.5 text-xs"
-                            disabled={executeMutation.isPending && executeMutation.variables === c.id}
-                            onClick={() => executeMutation.mutate(c.id)}
+                            disabled={submitMutation.isPending && submitMutation.variables === c.id}
+                            onClick={() => handleSubmit(c.id, c.name)}
                           >
-                            {executeMutation.isPending && executeMutation.variables === c.id
-                              ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
-                              : <><Send className="h-3 w-3" />Send</>}
+                            {submitMutation.isPending && submitMutation.variables === c.id
+                              ? <><Loader2 className="h-3 w-3 animate-spin" />Submitting…</>
+                              : <><ShieldAlert className="h-3 w-3" />Request Approval</>}
                           </Button>
+                        )}
+                        {!isSuperAdmin && c.status === "pending_approval" && (
+                          <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                            <Clock className="h-3 w-3" />Awaiting review
+                          </span>
                         )}
                         {c.status === "sending" && (
                           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

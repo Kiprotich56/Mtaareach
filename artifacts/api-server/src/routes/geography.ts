@@ -69,6 +69,7 @@ router.get("/geography/villages", requireAuth, async (req, res): Promise<void> =
       name: villagesTable.name,
       wardId: villagesTable.wardId,
       wardName: wardsTable.name,
+      tenantId: villagesTable.tenantId,
       status: villagesTable.status,
       gpsCoordinates: villagesTable.gpsCoordinates,
       population: villagesTable.population,

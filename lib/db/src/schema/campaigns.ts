@@ -31,6 +31,7 @@ export const campaignsTable = pgTable("campaigns", {
   estimatedCost: numeric("estimated_cost", { precision: 14, scale: 4 }).notNull().default("0.00"),
   actualCost: numeric("actual_cost", { precision: 14, scale: 4 }).notNull().default("0.00"),
   audienceFilter: json("audience_filter").$type<Record<string, unknown>>().notNull().default({}),
+  rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -93,8 +93,45 @@ router.get("/contacts", requireAuth, async (req, res): Promise<void> => {
 
   const where = conditions.length ? and(...conditions) : undefined;
 
-  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(contactsTable).where(where ?? sql`1=1`);
-  const contacts = await db.select().from(contactsTable).where(where ?? sql`1=1`).orderBy(contactsTable.createdAt).limit(limit).offset(offset);
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(contactsTable)
+    .where(where ?? sql`1=1`);
+
+  // Join ward and village names for display
+  const contacts = await db
+    .select({
+      id: contactsTable.id,
+      firstName: contactsTable.firstName,
+      lastName: contactsTable.lastName,
+      phone: contactsTable.phone,
+      gender: contactsTable.gender,
+      ageGroup: contactsTable.ageGroup,
+      occupation: contactsTable.occupation,
+      countyId: contactsTable.countyId,
+      constituencyId: contactsTable.constituencyId,
+      wardId: contactsTable.wardId,
+      villageId: contactsTable.villageId,
+      pollingStationId: contactsTable.pollingStationId,
+      consentSms: contactsTable.consentSms,
+      consentSource: contactsTable.consentSource,
+      consentDate: contactsTable.consentDate,
+      tags: contactsTable.tags,
+      notes: contactsTable.notes,
+      tenantId: contactsTable.tenantId,
+      isActive: contactsTable.isActive,
+      createdAt: contactsTable.createdAt,
+      updatedAt: contactsTable.updatedAt,
+      wardName: wardsTable.name,
+      villageName: villagesTable.name,
+    })
+    .from(contactsTable)
+    .leftJoin(wardsTable, eq(contactsTable.wardId, wardsTable.id))
+    .leftJoin(villagesTable, eq(contactsTable.villageId, villagesTable.id))
+    .where(where ?? sql`1=1`)
+    .orderBy(contactsTable.createdAt)
+    .limit(limit)
+    .offset(offset);
 
   res.json({ data: contacts, total, page, limit });
 });
@@ -132,7 +169,36 @@ router.post("/contacts", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/contacts/:contactId", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.contactId as string, 10);
-  const [contact] = await db.select().from(contactsTable).where(eq(contactsTable.id, id));
+  const [contact] = await db
+    .select({
+      id: contactsTable.id,
+      firstName: contactsTable.firstName,
+      lastName: contactsTable.lastName,
+      phone: contactsTable.phone,
+      gender: contactsTable.gender,
+      ageGroup: contactsTable.ageGroup,
+      occupation: contactsTable.occupation,
+      countyId: contactsTable.countyId,
+      constituencyId: contactsTable.constituencyId,
+      wardId: contactsTable.wardId,
+      villageId: contactsTable.villageId,
+      pollingStationId: contactsTable.pollingStationId,
+      consentSms: contactsTable.consentSms,
+      consentSource: contactsTable.consentSource,
+      consentDate: contactsTable.consentDate,
+      tags: contactsTable.tags,
+      notes: contactsTable.notes,
+      tenantId: contactsTable.tenantId,
+      isActive: contactsTable.isActive,
+      createdAt: contactsTable.createdAt,
+      updatedAt: contactsTable.updatedAt,
+      wardName: wardsTable.name,
+      villageName: villagesTable.name,
+    })
+    .from(contactsTable)
+    .leftJoin(wardsTable, eq(contactsTable.wardId, wardsTable.id))
+    .leftJoin(villagesTable, eq(contactsTable.villageId, villagesTable.id))
+    .where(eq(contactsTable.id, id));
   if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
   res.json(contact);
 });

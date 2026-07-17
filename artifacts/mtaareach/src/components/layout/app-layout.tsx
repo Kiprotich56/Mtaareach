@@ -88,8 +88,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     { label: "Wallets", href: "/super/wallet-management", icon: CreditCard },
     { label: "SMS Gateways", href: "/super/sms-gateways", icon: Server },
     { label: "Audit Logs", href: "/super/audit-logs", icon: Activity },
+    { label: "Campaign Approvals", href: "/super/campaign-approvals", icon: ShieldCheck, sectionTitle: "Approvals" },
+    { label: "Village Approvals", href: "/super/village-approvals", icon: MapPin },
     { label: "All Users", href: "/users", icon: Users, sectionTitle: "Monitor" },
-    { label: "All Contacts", href: "/contacts", icon: ShieldCheck },
+    { label: "All Contacts", href: "/contacts", icon: Users },
     { label: "All Campaigns", href: "/campaigns", icon: MessageSquare },
     { label: "Reports", href: "/reports", icon: FileText },
   ];
